@@ -2,83 +2,111 @@
 import streamlit as st
 import pandas as pd
 from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-import seaborn as sns
+import io
+from PIL import Image
 
-# Simulasi database pengguna
-users = {
-    "admin": {"password": "admin123", "role": "Admin"},
-    "guru1": {"password": "guru123", "role": "Guru"},
-    "siswa1": {"password": "siswa123", "role": "Siswa"}
-}
-
-st.set_page_config(page_title="Sistem Peringkat Kinerja Guru", layout="wide")
-
-# Setup session state
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.session_state.role = ""
-
+# --- Simulasi login sederhana ---
 def login_page():
-    st.title("🔐 Login Pengguna")
+    st.title("Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     if st.button("Login"):
-        if username in users and users[username]["password"] == password:
-            st.session_state.logged_in = True
-            st.session_state.username = username
-            st.session_state.role = users[username]["role"]
-            st.success(f"Berhasil login sebagai {st.session_state.role}")
+        if username.startswith("admin") and password == "admin":
+            st.success("Berhasil login sebagai Admin")
+            st.session_state["role"] = "admin"
             st.rerun()
-
+        elif username.startswith("guru") and password == "guru":
+            st.success("Berhasil login sebagai Guru")
+            st.session_state["role"] = "guru"
+            st.session_state["username"] = username
+            st.rerun()
+        elif username.startswith("siswa") and password == "siswa":
+            st.success("Berhasil login sebagai Siswa")
+            st.session_state["role"] = "siswa"
+            st.rerun()
         else:
-            st.error("Username atau password salah")
+            st.error("Login gagal")
 
-def logout():
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.session_state.role = ""
-    st.experimental_rerun()
+# --- Halaman evaluasi untuk siswa ---
+def siswa_page():
+    st.title("Form Evaluasi Guru")
+    nama_guru = st.text_input("Nama Guru")
+    kedisiplinan = st.slider("Kedisiplinan", 1, 5)
+    komunikasi = st.slider("Komunikasi", 1, 5)
+    penguasaan = st.slider("Penguasaan Materi", 1, 5)
+    kreativitas = st.slider("Kreativitas", 1, 5)
+    kerapian = st.slider("Kerapian Penampilan", 1, 5)
+    if st.button("Kirim Evaluasi"):
+        st.success("Terima kasih, evaluasi berhasil dikirim (simulasi).")
 
-def main_app():
-    st.sidebar.title(f"Halo, {st.session_state.username}")
-    st.sidebar.write(f"Peran: {st.session_state.role}")
-    st.sidebar.button("Logout", on_click=logout)
+# --- Halaman admin ---
+def admin_page():
+    st.title("Admin Panel - Clustering Kinerja Guru")
 
-    st.title("📊 Sistem Peringkat Kinerja Guru Berdasarkan Evaluasi Siswa")
-    
-    uploaded_file = st.file_uploader("📁 Unggah file CSV data evaluasi", type="csv")
-    
-    if uploaded_file is not None:
-        data = pd.read_csv(uploaded_file)
-        st.subheader("🧾 Data Evaluasi")
-        st.dataframe(data)
+    uploaded_file = st.file_uploader("Upload file CSV data evaluasi", type=["csv"])
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        st.dataframe(df)
 
-        fitur = data.iloc[:, 1:]
-        kmeans = KMeans(n_clusters=3, random_state=42)
-        data['Klaster'] = kmeans.fit_predict(fitur)
+        if st.button("Proses Clustering"):
+            X = df.iloc[:, 1:]  # tanpa kolom nama
+            kmeans = KMeans(n_clusters=3, random_state=42)
+            df["Cluster"] = kmeans.fit_predict(X)
+            st.session_state["clustered_df"] = df
+            st.success("Clustering selesai")
+            st.dataframe(df)
 
-        st.subheader("📄 Hasil Klasterisasi")
-        st.dataframe(data)
+            # Export to Excel
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Hasil Klaster')
+                writer.save()
+                st.download_button(
+                    label="📥 Download Hasil Klaster (.xlsx)",
+                    data=buffer.getvalue(),
+                    file_name="hasil_klaster.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
 
-        # Visualisasi
-        pca = PCA(n_components=2)
-        pca_data = pca.fit_transform(fitur)
-        data['PCA1'] = pca_data[:, 0]
-        data['PCA2'] = pca_data[:, 1]
+            # Grafik
+            fig, ax = plt.subplots()
+            scatter = ax.scatter(df.iloc[:, 1], df.iloc[:, 2], c=df["Cluster"], cmap='viridis')
+            ax.set_xlabel(df.columns[1])
+            ax.set_ylabel(df.columns[2])
+            ax.set_title("Visualisasi Klaster")
+            st.pyplot(fig)
 
-        st.subheader("📈 Visualisasi Klaster")
-        fig, ax = plt.subplots()
-        sns.scatterplot(data=data, x='PCA1', y='PCA2', hue='Klaster', palette='Set2', s=100, ax=ax)
-        ax.set_title("Visualisasi Klaster Kinerja Guru")
-        st.pyplot(fig)
+            # Download gambar grafik
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png")
+            st.download_button("📷 Download Grafik Klaster (.png)", data=buf.getvalue(), file_name="klaster.png", mime="image/png")
+
+# --- Halaman guru ---
+def guru_page():
+    st.title("Halaman Guru")
+    if "clustered_df" in st.session_state:
+        df = st.session_state["clustered_df"]
+        nama = st.session_state["username"].replace("guru_", "").capitalize()
+        data_guru = df[df["Nama Guru"].str.lower().str.contains(nama.lower())]
+        if not data_guru.empty:
+            st.write(f"Data evaluasi untuk: **{nama}**")
+            st.dataframe(data_guru)
+        else:
+            st.warning("Data Anda belum tersedia.")
     else:
-        st.info("Silakan unggah file CSV untuk memulai analisis.")
+        st.info("Admin belum melakukan proses clustering.")
 
-# Kontrol alur
-if st.session_state.logged_in:
-    main_app()
-else:
-    login_page()
+# --- Main App ---
+def main():
+    if "role" not in st.session_state:
+        login_page()
+    elif st.session_state["role"] == "admin":
+        admin_page()
+    elif st.session_state["role"] == "guru":
+        guru_page()
+    elif st.session_state["role"] == "siswa":
+        siswa_page()
+
+if __name__ == "__main__":
+    main()
