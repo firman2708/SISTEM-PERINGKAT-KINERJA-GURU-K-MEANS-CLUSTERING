@@ -31,7 +31,8 @@ def login_page():
             st.session_state.username = username
             st.session_state.role = users[username]["role"]
             st.success(f"Berhasil login sebagai {st.session_state.role}")
-            st.experimental_rerun()
+            st.rerun()
+
         else:
             st.error("Username atau password salah")
 
