@@ -69,13 +69,12 @@ def admin_page():
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                 df.to_excel(writer, index=False, sheet_name='Hasil Klaster')
-                writer.save()
-                st.download_button(
-                    label="📥 Download Hasil Klaster (.xlsx)",
-                    data=buffer.getvalue(),
-                    file_name="hasil_klaster.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                )
+            st.download_button(
+                label="📥 Download Hasil Klaster (.xlsx)",
+                data=buffer.getvalue(),
+                file_name="hasil_klaster.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
 
             # Grafik
             fig, ax = plt.subplots()
