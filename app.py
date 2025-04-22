@@ -6,6 +6,12 @@ import matplotlib.pyplot as plt
 import io
 from PIL import Image
 
+# --- Logout ---
+def logout_button():
+    if st.sidebar.button("🔓 Logout"):
+        st.session_state.clear()
+        st.experimental_rerun()
+
 # --- Simulasi login sederhana ---
 def login_page():
     st.title("Login")
@@ -30,6 +36,7 @@ def login_page():
 
 # --- Halaman evaluasi untuk siswa ---
 def siswa_page():
+    logout_button()
     st.title("Form Evaluasi Guru")
     nama_guru = st.text_input("Nama Guru")
     kedisiplinan = st.slider("Kedisiplinan", 1, 5)
@@ -42,6 +49,7 @@ def siswa_page():
 
 # --- Halaman admin ---
 def admin_page():
+    logout_button()
     st.title("Admin Panel - Clustering Kinerja Guru")
 
     uploaded_file = st.file_uploader("Upload file CSV data evaluasi", type=["csv"])
@@ -84,6 +92,7 @@ def admin_page():
 
 # --- Halaman guru ---
 def guru_page():
+    logout_button()
     st.title("Halaman Guru")
     if "clustered_df" in st.session_state:
         df = st.session_state["clustered_df"]
